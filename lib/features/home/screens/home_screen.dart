@@ -98,7 +98,7 @@ class HomeScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: GestureDetector(
-            onTap: () => _showProfileMenu(context, ref),
+            onTap: () => context.push('/profile'),
             child: CircleAvatar(
               radius: 18,
               backgroundColor: AppColors.primaryLight,
@@ -455,92 +455,6 @@ class HomeScreen extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════
-  //  PROFILE MENU
-  // ═══════════════════════════════════════════
-  void _showProfileMenu(BuildContext context, WidgetRef ref) {
-    final user = ref.read(authProvider).user;
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // User info
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: AppColors.primaryLight,
-              backgroundImage: user?.photoURL != null
-                  ? NetworkImage(user!.photoURL!)
-                  : null,
-              child: user?.photoURL == null
-                  ? Text(
-                      (user?.displayName ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              user?.displayName ?? 'Người dùng',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            Text(
-              user?.email ?? '',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondaryLight,
-                  ),
-            ),
-            const SizedBox(height: 24),
-
-            // Sign out button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  ref.read(authProvider.notifier).signOut();
-                },
-                icon: const Icon(Icons.logout_rounded, color: AppColors.error),
-                label: const Text(
-                  'Đăng xuất',
-                  style: TextStyle(color: AppColors.error),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.error),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
       ),
     );
   }
