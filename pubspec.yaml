@@ -37,7 +37,7 @@ dependencies:
   # AI Features
   flutter_tts: ^4.2.0
   speech_to_text: ^7.0.0
-  record: ^5.1.2
+  record: ^6.0.0
 
   # UI
   google_fonts: ^6.2.1

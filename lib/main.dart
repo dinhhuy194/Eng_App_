@@ -22,6 +22,8 @@ void main() async {
   );
 
   // 3. Khởi tạo Firebase
+  // Trên Android, Firebase tự cấu hình từ google-services.json
+  // Trên các platform khác, cần firebase_options.dart
   await Firebase.initializeApp();
 
   // 4. Chạy app với Riverpod

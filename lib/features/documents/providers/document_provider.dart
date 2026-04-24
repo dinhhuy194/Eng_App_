@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:typed_data';
 import '../../../core/services/firebase_service.dart';
-import '../../../core/services/gemini_service.dart';
 import '../../../core/utils/text_chunker.dart';
 import '../../../shared/models/document_model.dart';
 import '../services/pdf_parser.dart';
@@ -45,7 +44,6 @@ class DocumentState {
 /// Document Notifier — quản lý upload, parse, CRUD tài liệu
 class DocumentNotifier extends StateNotifier<DocumentState> {
   final FirebaseService _firebaseService = FirebaseService();
-  final GeminiService _geminiService = GeminiService();
 
   DocumentNotifier() : super(const DocumentState());
 
@@ -103,13 +101,10 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         final result = PdfParserService.parsePdf(fileBytes);
         extractedText = result.text;
         pageCount = result.pageCount;
-      } else if (fileType == 'docx') {
-        // Parse DOCX via Cloud Function
-        extractedText = await _geminiService.parseDocx(fileUrl);
-        pageCount = TextChunker.estimatePages(extractedText);
       } else {
-        // EPUB hoặc khác — TODO: implement
-        throw Exception('Định dạng $fileType chưa được hỗ trợ');
+        // DOCX, EPUB — chưa hỗ trợ trên client (cần Cloud Functions)
+        throw Exception(
+            'Định dạng .$fileType chưa được hỗ trợ. Vui lòng dùng file PDF.');
       }
 
       if (extractedText.trim().isEmpty) {
