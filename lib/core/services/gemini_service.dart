@@ -1,16 +1,71 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'dart:convert';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import '../constants/api_constants.dart';
+import 'firebase_service.dart';
 
-/// Service gọi Cloud Functions (Gemini AI qua backend)
-/// Tất cả AI calls đều đi qua Cloud Functions để bảo mật API key
+/// Service gọi Gemini AI trực tiếp từ Flutter
+/// Không cần Cloud Functions — dùng API key từ .env
 class GeminiService {
-  final FirebaseFunctions _functions =
-      FirebaseFunctions.instanceFor(region: ApiConstants.functionsRegion);
+  late final GenerativeModel _model;
+  final FirebaseService _firebaseService = FirebaseService();
 
   // ── Singleton ──
   static final GeminiService _instance = GeminiService._internal();
   factory GeminiService() => _instance;
-  GeminiService._internal();
+  GeminiService._internal() {
+    _model = GenerativeModel(
+      model: ApiConstants.geminiModel,
+      apiKey: ApiConstants.geminiApiKey,
+      generationConfig: GenerationConfig(
+        maxOutputTokens: 2048,
+        temperature: 0.3,
+      ),
+    );
+  }
+
+  /// Gọi Gemini với prompt và trả về text
+  Future<String> _callGemini(String prompt, {int? maxTokens}) async {
+    try {
+      final model = maxTokens != null
+          ? GenerativeModel(
+              model: ApiConstants.geminiModel,
+              apiKey: ApiConstants.geminiApiKey,
+              generationConfig: GenerationConfig(
+                maxOutputTokens: maxTokens,
+                temperature: 0.3,
+              ),
+            )
+          : _model;
+
+      final content = [Content.text(prompt)];
+      final response = await model.generateContent(content);
+
+      if (response.text == null || response.text!.isEmpty) {
+        throw Exception('Gemini không trả về kết quả');
+      }
+
+      return response.text!;
+    } on GenerativeAIException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// Extract JSON từ response (Gemini đôi khi wrap trong markdown)
+  String _extractJson(String text) {
+    // Thử tìm JSON array
+    final arrayMatch = RegExp(r'\[[\s\S]*\]').firstMatch(text);
+    if (arrayMatch != null) return arrayMatch.group(0)!;
+
+    // Thử tìm JSON object
+    final objectMatch = RegExp(r'\{[\s\S]*\}').firstMatch(text);
+    if (objectMatch != null) return objectMatch.group(0)!;
+
+    return text;
+  }
+
+  // ═══════════════════════════════════════════
+  //  GENERATE QUIZ
+  // ═══════════════════════════════════════════
 
   /// Tạo quiz từ tài liệu
   /// [documentId] — ID tài liệu trên Firestore
@@ -21,24 +76,38 @@ class GeminiService {
     int numQuestions = 10,
     String difficulty = 'mixed',
   }) async {
-    try {
-      final result = await _functions
-          .httpsCallable(ApiConstants.generateQuizFunction)
-          .call({
-        'documentId': documentId,
-        'numQuestions': numQuestions,
-        'difficulty': difficulty,
-      });
-
-      final questions = (result.data['questions'] as List<dynamic>)
-          .map((q) => Map<String, dynamic>.from(q as Map))
-          .toList();
-
-      return questions;
-    } on FirebaseFunctionsException catch (e) {
-      throw _handleError(e);
+    // Lấy chunks từ Firestore
+    final chunks = await _firebaseService.getChunks(documentId);
+    if (chunks.isEmpty) {
+      throw Exception('Tài liệu chưa được parse. Vui lòng thử lại.');
     }
+
+    // Lấy 3 chunks đầu làm context
+    final contextText = chunks
+        .take(3)
+        .map((c) => c['text'] ?? '')
+        .join('\n\n');
+
+    final prompt = '''Từ nội dung sau, tạo $numQuestions câu hỏi trắc nghiệm.
+Độ khó: $difficulty. Trả về JSON hợp lệ với format:
+[{"question": "...", "options": ["A","B","C","D"],
+ "correctIndex": 0, "explanation": "..."}]
+Chỉ trả về JSON, không thêm text khác.
+
+Nội dung: $contextText''';
+
+    final response = await _callGemini(prompt, maxTokens: 4096);
+    final jsonStr = _extractJson(response);
+    final questions = (jsonDecode(jsonStr) as List<dynamic>)
+        .map((q) => Map<String, dynamic>.from(q as Map))
+        .toList();
+
+    return questions;
   }
+
+  // ═══════════════════════════════════════════
+  //  PRONUNCIATION FEEDBACK
+  // ═══════════════════════════════════════════
 
   /// Lấy feedback phát âm từ AI
   /// [originalText] — Text gốc người dùng cần đọc
@@ -49,20 +118,28 @@ class GeminiService {
     required String recognizedText,
     String language = 'en-US',
   }) async {
-    try {
-      final result = await _functions
-          .httpsCallable(ApiConstants.pronunciationFeedbackFunction)
-          .call({
-        'originalText': originalText,
-        'recognizedText': recognizedText,
-        'language': language,
-      });
+    final prompt = '''Bạn là giáo viên ngôn ngữ chuyên nghiệp.
+Ngôn ngữ: $language
+Câu gốc:  "$originalText"
+Người dùng nói: "$recognizedText"
 
-      return Map<String, dynamic>.from(result.data);
-    } on FirebaseFunctionsException catch (e) {
-      throw _handleError(e);
-    }
+Hãy phân tích và cho feedback theo format JSON:
+{
+  "score": 0-100,
+  "pronunciation_errors": [{"word": "...", "issue": "...", "correct_ipa": "..."}],
+  "general_feedback": "...",
+  "improvement_tips": ["tip1", "tip2"]
+}
+Chỉ trả về JSON, không thêm text khác.''';
+
+    final response = await _callGemini(prompt);
+    final jsonStr = _extractJson(response);
+    return Map<String, dynamic>.from(jsonDecode(jsonStr) as Map);
   }
+
+  // ═══════════════════════════════════════════
+  //  Q&A (RAG)
+  // ═══════════════════════════════════════════
 
   /// Hỏi đáp thông minh (RAG) về tài liệu
   /// [question] — Câu hỏi của user
@@ -73,47 +150,78 @@ class GeminiService {
     required String documentId,
     List<Map<String, String>> conversationHistory = const [],
   }) async {
-    try {
-      final result = await _functions
-          .httpsCallable(ApiConstants.askQuestionFunction)
-          .call({
-        'question': question,
-        'documentId': documentId,
-        'conversationHistory': conversationHistory,
-      });
-
-      return Map<String, dynamic>.from(result.data);
-    } on FirebaseFunctionsException catch (e) {
-      throw _handleError(e);
+    // Lấy chunks từ Firestore
+    final chunks = await _firebaseService.getChunks(documentId);
+    if (chunks.isEmpty) {
+      throw Exception('Tài liệu chưa được parse.');
     }
+
+    // Tìm chunks liên quan
+    final relevant = _findRelevantChunks(question, chunks, 3);
+    final contextText = relevant.map((c) => c['text'] ?? '').join('\n\n');
+
+    // Build conversation history
+    final history = conversationHistory
+        .take(6)
+        .map((m) => '${m['role']}: ${m['content']}')
+        .join('\n');
+
+    final prompt = '''Bạn là trợ lý học tập. Chỉ trả lời dựa trên tài liệu được cung cấp.
+Nếu không có đủ thông tin, hãy nói rõ.
+
+TÀI LIỆU:
+$contextText
+
+LỊCH SỬ HỘI THOẠI:
+$history
+
+CÂU HỎI: $question
+
+Trả lời ngắn gọn, chính xác. Nếu trích dẫn, ghi rõ nguồn.''';
+
+    final answer = await _callGemini(prompt);
+    return {
+      'answer': answer,
+      'sourcesUsed': relevant.map((c) => c['index']).toList(),
+    };
   }
 
-  /// Parse DOCX trên server (nếu cần)
-  Future<String> parseDocx(String fileUrl) async {
-    try {
-      final result = await _functions
-          .httpsCallable(ApiConstants.parseDocxFunction)
-          .call({'fileUrl': fileUrl});
+  /// Tìm chunks liên quan đến câu hỏi (keyword matching)
+  List<Map<String, dynamic>> _findRelevantChunks(
+    String question,
+    List<Map<String, dynamic>> chunks,
+    int topK,
+  ) {
+    final qWords = question
+        .toLowerCase()
+        .split(' ')
+        .where((w) => w.length > 3)
+        .toList();
 
-      return result.data['text'] as String;
-    } on FirebaseFunctionsException catch (e) {
-      throw _handleError(e);
-    }
+    final scored = chunks.map((chunk) {
+      final text = (chunk['text'] ?? '').toString().toLowerCase();
+      final score = qWords.where((w) => text.contains(w)).length;
+      return {...chunk, 'score': score};
+    }).toList();
+
+    scored.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+    return scored.take(topK).toList();
   }
 
-  /// Xử lý lỗi từ Cloud Functions
-  Exception _handleError(FirebaseFunctionsException e) {
-    switch (e.code) {
-      case 'resource-exhausted':
-        return Exception('Đã đạt giới hạn sử dụng hôm nay. Thử lại vào ngày mai.');
-      case 'unauthenticated':
-        return Exception('Vui lòng đăng nhập lại.');
-      case 'invalid-argument':
-        return Exception('Dữ liệu không hợp lệ: ${e.message}');
-      case 'unavailable':
-        return Exception('Dịch vụ tạm thời không khả dụng. Thử lại sau.');
-      default:
-        return Exception('Lỗi: ${e.message ?? 'Không xác định'}');
+  // ═══════════════════════════════════════════
+  //  ERROR HANDLING
+  // ═══════════════════════════════════════════
+
+  /// Xử lý lỗi từ Gemini API
+  Exception _handleError(GenerativeAIException e) {
+    final message = e.message.toLowerCase();
+    if (message.contains('quota') || message.contains('rate')) {
+      return Exception('Đã đạt giới hạn API. Vui lòng thử lại sau.');
+    } else if (message.contains('safety')) {
+      return Exception('Nội dung không phù hợp. Vui lòng thử với nội dung khác.');
+    } else if (message.contains('invalid')) {
+      return Exception('API key không hợp lệ. Kiểm tra lại cấu hình.');
     }
+    return Exception('Lỗi AI: ${e.message}');
   }
 }

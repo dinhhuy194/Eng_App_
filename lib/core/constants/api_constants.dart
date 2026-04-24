@@ -6,18 +6,7 @@ class ApiConstants {
 
   // ── Gemini AI ──
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static const String geminiBaseUrl =
-      'https://generativelanguage.googleapis.com/v1beta';
   static const String geminiModel = 'gemini-1.5-flash';
-
-  // ── Cloud Functions Region ──
-  static const String functionsRegion = 'us-central1';
-
-  // ── Cloud Function Names ──
-  static const String parseDocxFunction = 'parseDocx';
-  static const String generateQuizFunction = 'generateQuiz';
-  static const String pronunciationFeedbackFunction = 'pronunciationFeedback';
-  static const String askQuestionFunction = 'askQuestion';
 
   // ── Chunking Config ──
   static const int maxTokensPerChunk = 1500;

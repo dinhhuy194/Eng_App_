@@ -23,7 +23,9 @@ dependencies:
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
   firebase_storage: ^12.3.7
-  cloud_functions: ^5.1.4
+
+  # Gemini AI (gọi trực tiếp, không qua Cloud Functions)
+  google_generative_ai: ^0.4.6
 
   # Auth
   google_sign_in: ^6.2.2
