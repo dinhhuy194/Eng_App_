@@ -13,6 +13,11 @@
 migrate_working_dir/
 .env
 
+# Tài liệu phát triển (không push)
+EduApp_TaiLieu_PhatTrien.docx
+EduApp_TaiLieu_PhatTrien.txt
+extract_doc.ps1
+
 # Firebase config (chứa API keys)
 lib/firebase_options.dart
 android/app/google-services.json
