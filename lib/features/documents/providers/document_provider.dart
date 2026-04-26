@@ -47,50 +47,18 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
 
   DocumentNotifier() : super(const DocumentState());
 
-  /// Upload & parse tài liệu
+  /// Parse tài liệu trên device và lưu text chunks vào Firestore
+  /// (Không upload file gốc lên Storage — tiết kiệm chi phí)
   Future<void> uploadAndParse({
     required String fileName,
     required Uint8List fileBytes,
     required String fileType,
   }) async {
     try {
-      // 1. Tạo document record trên Firestore
+      // 1. Parse text trước để kiểm tra file hợp lệ
       state = state.copyWith(
-        isUploading: true,
-        statusMessage: 'Đang tải tài liệu lên...',
-      );
-
-      final docId = await _firebaseService.createDocument({
-        'title': _cleanFileName(fileName),
-        'fileType': fileType,
-        'status': 'uploading',
-        'pageCount': 0,
-        'chunkCount': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // 2. Upload file lên Storage
-      state = state.copyWith(
-        uploadProgress: 0.3,
-        statusMessage: 'Đang tải file lên Storage...',
-      );
-
-      final fileUrl = await _firebaseService.uploadFile(
-        fileName: fileName,
-        fileBytes: fileBytes,
-        docId: docId,
-      );
-
-      await _firebaseService.updateDocument(docId, {
-        'fileUrl': fileUrl,
-        'status': 'parsing',
-      });
-
-      // 3. Parse text
-      state = state.copyWith(
-        isUploading: false,
         isParsing: true,
-        uploadProgress: 0.5,
+        uploadProgress: 0.1,
         statusMessage: 'Đang trích xuất nội dung...',
       );
 
@@ -102,13 +70,11 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         extractedText = result.text;
         pageCount = result.pageCount;
       } else {
-        // DOCX, EPUB — chưa hỗ trợ trên client (cần Cloud Functions)
         throw Exception(
             'Định dạng .$fileType chưa được hỗ trợ. Vui lòng dùng file PDF.');
       }
 
       if (extractedText.trim().isEmpty) {
-        await _firebaseService.updateDocument(docId, {'status': 'error'});
         state = state.copyWith(
           isParsing: false,
           errorMessage:
@@ -117,26 +83,41 @@ class DocumentNotifier extends StateNotifier<DocumentState> {
         return;
       }
 
-      // 4. Chunk text
+      // 2. Tạo document record trên Firestore
       state = state.copyWith(
-        uploadProgress: 0.7,
+        uploadProgress: 0.3,
+        statusMessage: 'Đang tạo tài liệu...',
+      );
+
+      final docId = await _firebaseService.createDocument({
+        'title': _cleanFileName(fileName),
+        'fileType': fileType,
+        'fileName': fileName,
+        'status': 'parsing',
+        'pageCount': pageCount,
+        'chunkCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 3. Chunk text
+      state = state.copyWith(
+        uploadProgress: 0.5,
         statusMessage: 'Đang chia nhỏ nội dung...',
       );
 
       final chunks = TextChunker.chunkText(extractedText);
 
-      // 5. Lưu chunks vào Firestore
+      // 4. Lưu chunks vào Firestore
       state = state.copyWith(
-        uploadProgress: 0.9,
+        uploadProgress: 0.8,
         statusMessage: 'Đang lưu dữ liệu...',
       );
 
       await _firebaseService.saveChunks(docId, chunks);
 
-      // 6. Cập nhật trạng thái document
+      // 5. Cập nhật trạng thái document → ready
       await _firebaseService.updateDocument(docId, {
         'status': 'ready',
-        'pageCount': pageCount,
         'chunkCount': chunks.length,
       });
 

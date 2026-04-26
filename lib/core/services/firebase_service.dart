@@ -1,15 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:typed_data';
 import '../constants/api_constants.dart';
 
 /// Service tập trung cho các thao tác Firebase
-/// Auth, Firestore, Storage
+/// Auth, Firestore (không dùng Storage — cần Blaze plan)
 class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // ── Singleton ──
   static final FirebaseService _instance = FirebaseService._internal();
@@ -79,17 +76,6 @@ class FirebaseService {
         .get();
     for (final chunk in chunks.docs) {
       await chunk.reference.delete();
-    }
-
-    // Xóa file trên Storage
-    try {
-      final doc = await _documentsRef.doc(docId).get();
-      final fileUrl = (doc.data() as Map<String, dynamic>?)?['fileUrl'];
-      if (fileUrl != null) {
-        await _storage.refFromURL(fileUrl).delete();
-      }
-    } catch (_) {
-      // File có thể không tồn tại
     }
 
     // Xóa document
@@ -173,40 +159,5 @@ class FirebaseService {
   Future<void> updateSession(
       String sessionId, Map<String, dynamic> data) async {
     await _sessionsRef.doc(sessionId).update(data);
-  }
-
-  // ═══════════════════════════════════════════
-  //  STORAGE
-  // ═══════════════════════════════════════════
-
-  /// Upload file lên Firebase Storage
-  Future<String> uploadFile({
-    required String fileName,
-    required Uint8List fileBytes,
-    required String docId,
-  }) async {
-    final ref = _storage.ref().child(
-        '${ApiConstants.userStoragePath(userId!)}/$docId/$fileName');
-    
-    final uploadTask = await ref.putData(
-      fileBytes,
-      SettableMetadata(contentType: _getContentType(fileName)),
-    );
-
-    return await uploadTask.ref.getDownloadURL();
-  }
-
-  String _getContentType(String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'docx':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'epub':
-        return 'application/epub+zip';
-      default:
-        return 'application/octet-stream';
-    }
   }
 }
