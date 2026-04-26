@@ -100,6 +100,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen>
                 _buildQATab(context),
               ],
             ),
+      floatingActionButton: _buildVocabFab(context),
     );
   }
 
@@ -117,31 +118,62 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen>
       children: [
         // Header info
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           color: AppColors.primary.withValues(alpha: 0.05),
-          child: Row(
+          child: Column(
             children: [
-              Icon(Icons.info_outline_rounded,
-                  color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                '${_chunks.length} phần • Chạm để nghe TTS',
-                style: TextStyle(
-                  color: AppColors.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_chunks.length} phần • Chạm để nghe TTS',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () =>
+                        context.push('/reading/${widget.documentId}'),
+                    icon: const Icon(Icons.headphones_rounded, size: 18),
+                    label: const Text('Nghe'),
+                    style: TextButton.styleFrom(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: () =>
-                    context.push('/reading/${widget.documentId}'),
-                icon: const Icon(Icons.headphones_rounded, size: 18),
-                label: const Text('Nghe'),
-                style: TextButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                ),
+              const SizedBox(height: 8),
+              // ── Quick access: Từ vựng + Ôn tập ──
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickAccessChip(
+                      context,
+                      icon: Icons.book_rounded,
+                      label: 'Từ vựng',
+                      color: const Color(0xFF667EEA),
+                      onTap: () => context.push(
+                        '/vocabulary?docId=${widget.documentId}&title=${Uri.encodeComponent(widget.title)}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildQuickAccessChip(
+                      context,
+                      icon: Icons.replay_rounded,
+                      label: 'Ôn tập',
+                      color: const Color(0xFFF5576C),
+                      onTap: () => context.push('/review'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -383,6 +415,61 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen>
           ],
         ),
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  //  QUICK ACCESS CHIP (Từ vựng / Ôn tập)
+  // ═══════════════════════════════════════════
+  Widget _buildQuickAccessChip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Floating action button cho Vocabulary ──
+  Widget? _buildVocabFab(BuildContext context) {
+    return FloatingActionButton.small(
+      heroTag: 'vocab_fab',
+      backgroundColor: const Color(0xFF667EEA),
+      onPressed: () => context.push(
+        '/vocabulary?docId=${widget.documentId}&title=${Uri.encodeComponent(widget.title)}',
+      ),
+      tooltip: 'Từ vựng',
+      child: const Icon(Icons.book_rounded, color: Colors.white, size: 20),
     );
   }
 }

@@ -4,14 +4,73 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/widgets/score_badge.dart';
 import '../providers/quiz_provider.dart';
+import '../../review/services/flashcard_service.dart';
 
 /// Quiz Result Screen — Hiển thị kết quả quiz
-class QuizResultScreen extends ConsumerWidget {
+class QuizResultScreen extends ConsumerStatefulWidget {
   final String quizId;
   const QuizResultScreen({super.key, required this.quizId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<QuizResultScreen> createState() => _QuizResultScreenState();
+}
+
+class _QuizResultScreenState extends ConsumerState<QuizResultScreen> {
+  bool _isCreatingFlashcards = false;
+  bool _flashcardsCreated = false;
+  int _createdCount = 0;
+
+  Future<void> _createFlashcardsFromErrors() async {
+    final quizState = ref.read(quizProvider);
+    final quiz = quizState.quiz;
+    if (quiz == null) return;
+
+    final wrongQuestions = quiz.questions.where((q) => !q.isCorrect && q.isAnswered).toList();
+    if (wrongQuestions.isEmpty) return;
+
+    setState(() => _isCreatingFlashcards = true);
+
+    try {
+      final service = FlashcardService();
+      int count = 0;
+      for (final q in wrongQuestions) {
+        await service.createFromQuizError(
+          question: q.text,
+          correctAnswer: q.options[q.correctIndex],
+          explanation: q.explanation,
+          quizId: widget.quizId,
+        );
+        count++;
+      }
+      setState(() {
+        _flashcardsCreated = true;
+        _createdCount = count;
+        _isCreatingFlashcards = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Đã tạo $count flashcard để ôn tập!'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isCreatingFlashcards = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tạo flashcard: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final quizState = ref.watch(quizProvider);
     final quiz = quizState.quiz;
 
@@ -24,6 +83,7 @@ class QuizResultScreen extends ConsumerWidget {
 
     final correctCount =
         quiz.questions.where((q) => q.isCorrect).length;
+    final wrongCount = quiz.totalQuestions - correctCount;
     final scorePercent = (correctCount / quiz.totalQuestions * 100);
     final timeMin = (quiz.timeSpentSec ?? 0) ~/ 60;
     final timeSec = (quiz.timeSpentSec ?? 0) % 60;
@@ -114,11 +174,9 @@ class QuizResultScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      // Xem chi tiết từng câu bên dưới
-                    },
-                    icon: const Icon(Icons.visibility_rounded),
-                    label: const Text('Xem đáp án'),
+                    onPressed: () => context.push('/review'),
+                    icon: const Icon(Icons.replay_rounded),
+                    label: const Text('Ôn tập'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
@@ -126,6 +184,12 @@ class QuizResultScreen extends ConsumerWidget {
                 ),
               ],
             ),
+
+            // ── Flashcard từ câu sai ──
+            if (wrongCount > 0) ...[
+              const SizedBox(height: 16),
+              _buildFlashcardCTA(wrongCount),
+            ],
 
             const SizedBox(height: 28),
 
@@ -282,6 +346,131 @@ class QuizResultScreen extends ConsumerWidget {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  //  FLASHCARD CTA
+  // ═══════════════════════════════════════════
+  Widget _buildFlashcardCTA(int wrongCount) {
+    if (_flashcardsCreated) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                color: AppColors.success, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Đã tạo flashcard!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.success,
+                    ),
+                  ),
+                  Text(
+                    '$_createdCount thẻ đã được thêm vào hệ thống ôn tập',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.success.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => context.push('/review'),
+              child: const Text('Ôn ngay'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFF5576C).withValues(alpha: 0.08),
+            const Color(0xFFF093FB).withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFF5576C).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5576C).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.style_rounded,
+              color: Color(0xFFF5576C),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$wrongCount câu sai → Flashcard',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Tạo thẻ ôn tập từ câu trả lời sai',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _isCreatingFlashcards
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : ElevatedButton(
+                  onPressed: _createFlashcardsFromErrors,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF5576C),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    textStyle: const TextStyle(fontSize: 13),
+                  ),
+                  child: const Text('Tạo ngay'),
+                ),
         ],
       ),
     );

@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/services/firebase_service.dart';
 import '../../../shared/models/document_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../review/services/flashcard_service.dart';
 
 /// Home Screen — Dashboard chính
 class HomeScreen extends ConsumerWidget {
@@ -29,6 +30,10 @@ class HomeScreen extends ConsumerWidget {
               delegate: SliverChildListDelegate([
                 // Greeting
                 _buildGreeting(context, user),
+                const SizedBox(height: 24),
+
+                // ── SRS Dashboard ──
+                _buildSRSDashboard(context),
                 const SizedBox(height: 24),
 
                 // Quick Actions
@@ -169,7 +174,207 @@ class HomeScreen extends ConsumerWidget {
   }
 
   // ═══════════════════════════════════════════
-  //  QUICK ACTIONS (4 cards)
+  //  SRS DASHBOARD — Spaced Repetition Stats
+  // ═══════════════════════════════════════════
+  Widget _buildSRSDashboard(BuildContext context) {
+    return FutureBuilder<Map<String, int>>(
+      future: FlashcardService().getStats(),
+      builder: (context, snapshot) {
+        final stats = snapshot.data;
+        final dueCount = stats?['due'] ?? 0;
+        final totalCount = stats?['total'] ?? 0;
+        final masteredCount = stats?['mastered'] ?? 0;
+        final learningCount = stats?['learning'] ?? 0;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF667EEA).withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.psychology_rounded,
+                        color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hệ thống ôn tập',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Spaced Repetition',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Due Today badge
+                  if (dueCount > 0)
+                    GestureDetector(
+                      onTap: () => context.push('/review'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.play_arrow_rounded,
+                                color: Color(0xFF667EEA), size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Ôn $dueCount thẻ',
+                              style: const TextStyle(
+                                color: Color(0xFF667EEA),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Stats row
+              Row(
+                children: [
+                  _buildSRSStatItem(
+                    '⏰',
+                    '$dueCount',
+                    'Cần ôn',
+                    Colors.white,
+                  ),
+                  _buildSRSStatDivider(),
+                  _buildSRSStatItem(
+                    '📚',
+                    '$totalCount',
+                    'Tổng thẻ',
+                    Colors.white,
+                  ),
+                  _buildSRSStatDivider(),
+                  _buildSRSStatItem(
+                    '📖',
+                    '$learningCount',
+                    'Đang học',
+                    Colors.white,
+                  ),
+                  _buildSRSStatDivider(),
+                  _buildSRSStatItem(
+                    '✅',
+                    '$masteredCount',
+                    'Đã thuộc',
+                    Colors.white,
+                  ),
+                ],
+              ),
+
+              // Progress bar
+              if (totalCount > 0) ...[
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: totalCount > 0 ? masteredCount / totalCount : 0,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.white),
+                    minHeight: 6,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${totalCount > 0 ? (masteredCount / totalCount * 100).toInt() : 0}% đã thuộc',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSRSStatItem(
+      String emoji, String value, String label, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: color.withValues(alpha: 0.7),
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSRSStatDivider() {
+    return Container(
+      width: 1,
+      height: 40,
+      color: Colors.white.withValues(alpha: 0.2),
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  //  QUICK ACTIONS (6 cards)
   // ═══════════════════════════════════════════
   Widget _buildQuickActions(BuildContext context) {
     final actions = [
@@ -204,6 +409,22 @@ class HomeScreen extends ConsumerWidget {
           colors: [Color(0xFF43E97B), Color(0xFF38F9D7)],
         ),
         onTap: () => context.push('/documents'),
+      ),
+      _QuickAction(
+        icon: Icons.replay_rounded,
+        label: 'Ôn tập\nFlashcard',
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF5576C), Color(0xFFF093FB)],
+        ),
+        onTap: () => context.push('/review'),
+      ),
+      _QuickAction(
+        icon: Icons.book_rounded,
+        label: 'Từ vựng\nBuilder',
+        gradient: const LinearGradient(
+          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+        ),
+        onTap: () => context.push('/vocabulary'),
       ),
     ];
 
