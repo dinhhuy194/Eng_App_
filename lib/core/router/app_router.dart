@@ -12,6 +12,7 @@ import '../../features/tts/screens/reading_screen.dart';
 import '../../features/pronunciation/screens/pronunciation_screen.dart';
 import '../../features/qa/screens/qa_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/review/screens/review_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 
 /// App Router — GoRouter configuration
@@ -99,6 +100,11 @@ class AppRouter {
         name: 'qa',
         builder: (context, state) =>
             QAScreen(documentId: state.pathParameters['docId']!),
+      ),
+      GoRoute(
+        path: '/review',
+        name: 'review',
+        builder: (context, state) => const ReviewScreen(),
       ),
       GoRoute(
         path: '/profile',

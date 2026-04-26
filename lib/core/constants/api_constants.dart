@@ -28,6 +28,7 @@ class ApiConstants {
   static const String chunksSubcollection = 'chunks';
   static const String quizzesSubcollection = 'quizzes';
   static const String sessionsSubcollection = 'sessions';
+  static const String flashcardsSubcollection = 'flashcards';
   static const String rateLimitsCollection = 'rateLimits';
   static const String quizCacheCollection = 'quizCache';
 
