@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -97,9 +98,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _firebaseService.createUserProfile(userCredential.user!);
       }
     } on FirebaseAuthException catch (e) {
+      debugPrint('🔴 [Auth] signIn FirebaseAuthException: ${e.code} - ${e.message}');
       state = AuthState(
         status: AuthStatus.error,
         errorMessage: _getErrorMessage(e.code),
+      );
+    } catch (e) {
+      debugPrint('🔴 [Auth] signIn Error: $e');
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Đã xảy ra lỗi khi đăng nhập: $e',
       );
     }
   }
@@ -110,22 +118,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       state = state.copyWith(status: AuthStatus.loading);
 
+      debugPrint('🟡 [Auth] Đang đăng ký với email: $email');
+
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
+      debugPrint('🟢 [Auth] Đã tạo tài khoản, uid: ${userCredential.user?.uid}');
+
       // Cập nhật display name
       await userCredential.user?.updateDisplayName(name.trim());
       await userCredential.user?.reload();
 
+      debugPrint('🟢 [Auth] Đã cập nhật display name');
+
       if (_auth.currentUser != null) {
         await _firebaseService.createUserProfile(_auth.currentUser!);
+        debugPrint('🟢 [Auth] Đã tạo user profile trên Firestore');
       }
     } on FirebaseAuthException catch (e) {
+      debugPrint('🔴 [Auth] register FirebaseAuthException: ${e.code} - ${e.message}');
       state = AuthState(
         status: AuthStatus.error,
         errorMessage: _getErrorMessage(e.code),
+      );
+    } catch (e) {
+      debugPrint('🔴 [Auth] register Error: $e');
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Đã xảy ra lỗi khi đăng ký: $e',
       );
     }
   }

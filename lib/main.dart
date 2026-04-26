@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
@@ -26,7 +28,16 @@ void main() async {
   // Trên các platform khác, cần firebase_options.dart
   await Firebase.initializeApp();
 
-  // 4. Chạy app với Riverpod
+  // 4. Tắt App Verification (reCAPTCHA) trong chế độ debug
+  // Trên emulator, reCAPTCHA bị treo khi đăng ký → cần tắt
+  if (kDebugMode) {
+    await FirebaseAuth.instance.setSettings(
+      appVerificationDisabledForTesting: true,
+    );
+    debugPrint('🟢 [Main] Firebase Auth: appVerificationDisabledForTesting = true');
+  }
+
+  // 5. Chạy app với Riverpod
   runApp(const ProviderScope(child: EduApp()));
 }
 
