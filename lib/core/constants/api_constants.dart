@@ -29,6 +29,7 @@ class ApiConstants {
   static const String quizzesSubcollection = 'quizzes';
   static const String sessionsSubcollection = 'sessions';
   static const String flashcardsSubcollection = 'flashcards';
+  static const String vocabularySubcollection = 'vocabulary';
   static const String rateLimitsCollection = 'rateLimits';
   static const String quizCacheCollection = 'quizCache';
 

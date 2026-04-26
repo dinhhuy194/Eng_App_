@@ -64,6 +64,17 @@ class GeminiService {
   }
 
   // ═══════════════════════════════════════════
+  //  PUBLIC API — cho các service khác gọi
+  // ═══════════════════════════════════════════
+
+  /// Gọi Gemini AI với prompt tùy chỉnh (public wrapper)
+  Future<String> callGeminiRaw(String prompt, {int? maxTokens}) =>
+      _callGemini(prompt, maxTokens: maxTokens);
+
+  /// Extract JSON từ response (public wrapper)
+  String extractJsonFromResponse(String text) => _extractJson(text);
+
+  // ═══════════════════════════════════════════
   //  GENERATE QUIZ
   // ═══════════════════════════════════════════
 

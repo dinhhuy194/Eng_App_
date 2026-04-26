@@ -13,6 +13,7 @@ import '../../features/pronunciation/screens/pronunciation_screen.dart';
 import '../../features/qa/screens/qa_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/review/screens/review_screen.dart';
+import '../../features/vocabulary/screens/vocabulary_list_screen.dart';
 import '../../features/splash/screens/splash_screen.dart';
 
 /// App Router — GoRouter configuration
@@ -105,6 +106,18 @@ class AppRouter {
         path: '/review',
         name: 'review',
         builder: (context, state) => const ReviewScreen(),
+      ),
+      GoRoute(
+        path: '/vocabulary',
+        name: 'vocabulary',
+        builder: (context, state) {
+          final docId = state.uri.queryParameters['docId'];
+          final title = state.uri.queryParameters['title'];
+          return VocabularyListScreen(
+            documentId: docId,
+            documentTitle: title,
+          );
+        },
       ),
       GoRoute(
         path: '/profile',
