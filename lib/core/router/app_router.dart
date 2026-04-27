@@ -5,6 +5,8 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/documents/screens/document_list_screen.dart';
 import '../../features/documents/screens/document_detail_screen.dart';
+import '../../features/lesson/screens/lesson_list_screen.dart';
+import '../../features/lesson/screens/lesson_screen.dart';
 import '../../features/quiz/screens/quiz_setup_screen.dart';
 import '../../features/quiz/screens/quiz_screen.dart';
 import '../../features/quiz/screens/quiz_result_screen.dart';
@@ -123,6 +125,28 @@ class AppRouter {
         path: '/profile',
         name: 'profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/lessons/:docId',
+        name: 'lessons',
+        builder: (context, state) {
+          final docId = state.pathParameters['docId']!;
+          final title = state.uri.queryParameters['title'] ?? 'Tài liệu';
+          return LessonListScreen(documentId: docId, documentTitle: title);
+        },
+      ),
+      GoRoute(
+        path: '/lesson/:lessonId',
+        name: 'lesson',
+        builder: (context, state) {
+          final lessonId = state.pathParameters['lessonId']!;
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          return LessonScreen(
+            lessonId: lessonId,
+            documentId: extra['documentId'] ?? '',
+            documentTitle: extra['title'] ?? '',
+          );
+        },
       ),
     ],
 

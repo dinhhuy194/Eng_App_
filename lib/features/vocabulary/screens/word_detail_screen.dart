@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/word_model.dart';
 import '../providers/vocabulary_provider.dart';
@@ -32,8 +33,10 @@ class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(0.45);
+    // Đọc settings từ SettingsProvider (persistent)
+    final settings = ref.read(settingsProvider);
+    await _tts.setLanguage(settings.ttsLanguage);
+    await _tts.setSpeechRate(settings.ttsSpeed);
     await _tts.setPitch(1.0);
 
     _tts.setCompletionHandler(() {

@@ -149,7 +149,7 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen>
                 ],
               ),
               const SizedBox(height: 8),
-              // ── Quick access: Từ vựng + Ôn tập ──
+              // ── Quick access: Từ vựng + Học bài + Ôn tập ──
               Row(
                 children: [
                   Expanded(
@@ -160,6 +160,18 @@ class _DocumentDetailScreenState extends ConsumerState<DocumentDetailScreen>
                       color: const Color(0xFF667EEA),
                       onTap: () => context.push(
                         '/vocabulary?docId=${widget.documentId}&title=${Uri.encodeComponent(widget.title)}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildQuickAccessChip(
+                      context,
+                      icon: Icons.school_rounded,
+                      label: 'Học bài',
+                      color: const Color(0xFF38B2AC),
+                      onTap: () => context.push(
+                        '/lessons/${widget.documentId}?title=${Uri.encodeComponent(widget.title)}',
                       ),
                     ),
                   ),

@@ -429,12 +429,12 @@ class HomeScreen extends ConsumerWidget {
     ];
 
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: 3,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.6,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 0.95,
       children: actions.map((a) => _buildQuickActionCard(context, a)).toList(),
     );
   }

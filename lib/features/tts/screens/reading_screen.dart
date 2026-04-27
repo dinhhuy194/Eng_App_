@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/firebase_service.dart';
 
 /// Reading Screen — Đọc tài liệu + TTS controls
@@ -31,7 +32,10 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
   }
 
   Future<void> _initTts() async {
-    await _tts.setLanguage("en-US");
+    // Đọc settings từ SettingsProvider (persistent)
+    final settings = ref.read(settingsProvider);
+    _speechRate = settings.ttsSpeed;
+    await _tts.setLanguage(settings.ttsLanguage);
     await _tts.setSpeechRate(_speechRate);
     await _tts.setPitch(_pitch);
 
@@ -316,6 +320,8 @@ class _ReadingScreenState extends ConsumerState<ReadingScreen> {
                   setSheetState(() => _speechRate = val);
                   setState(() => _speechRate = val);
                   _tts.setSpeechRate(val);
+                  // Sync ngược lên SettingsProvider (persistent)
+                  ref.read(settingsProvider.notifier).setTtsSpeed(val);
                 },
               ),
 
