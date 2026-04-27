@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/settings_service.dart';
+import 'core/providers/settings_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
@@ -16,7 +18,7 @@ void main() async {
   // 2. Load biến môi trường từ .env
   await dotenv.load(fileName: ".env");
 
-  // 2. Status bar style
+  // 3. Status bar style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -24,13 +26,10 @@ void main() async {
     ),
   );
 
-  // 3. Khởi tạo Firebase
-  // Trên Android, Firebase tự cấu hình từ google-services.json
-  // Trên các platform khác, cần firebase_options.dart
+  // 4. Khởi tạo Firebase
   await Firebase.initializeApp();
 
-  // 4. Tắt App Verification (reCAPTCHA) trong chế độ debug
-  // Trên emulator, reCAPTCHA bị treo khi đăng ký → cần tắt
+  // 5. Tắt App Verification (reCAPTCHA) trong chế độ debug
   if (kDebugMode) {
     await FirebaseAuth.instance.setSettings(
       appVerificationDisabledForTesting: true,
@@ -38,33 +37,52 @@ void main() async {
     debugPrint('🟢 [Main] Firebase Auth: appVerificationDisabledForTesting = true');
   }
 
-  // 5. Khởi tạo Notification Service + nhắc ôn hàng ngày
+  // 6. Khởi tạo Settings Service (SharedPreferences)
+  final settingsService = SettingsService();
+  await settingsService.init();
+  debugPrint('⚙️ [Main] SettingsService initialized');
+
+  // 7. Khởi tạo Notification Service + nhắc ôn hàng ngày
   try {
     await NotificationService().init();
-    await NotificationService().scheduleDailyReminder(hour: 8, minute: 0);
+    if (settingsService.notificationsEnabled) {
+      await NotificationService().scheduleDailyReminder(
+        hour: settingsService.dailyReminderHour,
+        minute: settingsService.dailyReminderMinute,
+      );
+    }
     debugPrint('🔔 [Main] NotificationService initialized');
   } catch (e) {
     debugPrint('⚠️ [Main] NotificationService init failed: $e');
   }
 
-  // 6. Chạy app với Riverpod
-  runApp(const ProviderScope(child: EduApp()));
+  // 8. Chạy app với Riverpod — override settingsServiceProvider
+  runApp(
+    ProviderScope(
+      overrides: [
+        settingsServiceProvider.overrideWithValue(settingsService),
+      ],
+      child: const EduApp(),
+    ),
+  );
 }
 
 /// Root Widget — EduApp
-class EduApp extends StatelessWidget {
+class EduApp extends ConsumerWidget {
   const EduApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'EduApp - Học Tập Thông Minh',
 
-      // Theme
+      // Theme — reactive từ SettingsProvider
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: settings.themeMode,
 
       // Router
       routerConfig: AppRouter.router,

@@ -51,9 +51,14 @@ class FirebaseService {
         .collection(ApiConstants.documentsSubcollection);
   }
 
-  /// Lấy danh sách tài liệu
+  /// Lấy danh sách tài liệu (stream)
   Stream<QuerySnapshot> getDocumentsStream() {
     return _documentsRef.orderBy('createdAt', descending: true).snapshots();
+  }
+
+  /// Lấy danh sách tài liệu (one-shot) — cho thống kê
+  Future<QuerySnapshot> getDocumentsOnce() {
+    return _documentsRef.orderBy('createdAt', descending: true).get();
   }
 
   /// Tạo document mới

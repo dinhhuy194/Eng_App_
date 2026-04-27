@@ -620,23 +620,40 @@ class HomeScreen extends ConsumerWidget {
   //  LEARNING STATS
   // ═══════════════════════════════════════════
   Widget _buildLearningStats(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-            child: _buildStatCard(
-                context, Icons.description_rounded, '0', 'Tài liệu',
-                color: AppColors.primary)),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _buildStatCard(
-                context, Icons.quiz_rounded, '0', 'Quiz hoàn thành',
-                color: const Color(0xFFF5576C))),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _buildStatCard(
-                context, Icons.mic_rounded, '0', 'Phát âm',
-                color: AppColors.secondary)),
-      ],
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait([
+        FirebaseService().getDocumentsOnce(),
+        FlashcardService().getStats(),
+      ]),
+      builder: (context, snapshot) {
+        final docCount = snapshot.hasData
+            ? (snapshot.data![0] as QuerySnapshot).docs.length
+            : 0;
+        final flashStats = snapshot.hasData
+            ? snapshot.data![1] as Map<String, int>
+            : <String, int>{};
+        final mastered = flashStats['mastered'] ?? 0;
+        final total = flashStats['total'] ?? 0;
+
+        return Row(
+          children: [
+            Expanded(
+                child: _buildStatCard(
+                    context, Icons.description_rounded, '$docCount', 'Tài liệu',
+                    color: AppColors.primary)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildStatCard(
+                    context, Icons.style_rounded, '$total', 'Flashcard',
+                    color: const Color(0xFFF5576C))),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _buildStatCard(
+                    context, Icons.check_circle_rounded, '$mastered', 'Đã thuộc',
+                    color: AppColors.secondary)),
+          ],
+        );
+      },
     );
   }
 
