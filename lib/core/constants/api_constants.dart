@@ -6,7 +6,7 @@ class ApiConstants {
 
   // ── Gemini AI ──
   static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
-  static const String geminiModel = 'gemini-1.5-flash';
+  static const String geminiModel = 'gemini-2.5-flash';
 
   // ── Chunking Config ──
   static const int maxTokensPerChunk = 1500;

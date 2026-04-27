@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/word_model.dart';
@@ -8,19 +9,65 @@ import '../providers/vocabulary_provider.dart';
 /// Màn hình chi tiết từ vựng
 ///
 /// Hiển thị: word, IPA, definition VN/EN, example, status, source
-class WordDetailScreen extends ConsumerWidget {
+/// TTS: Phát âm từ vựng + ví dụ
+class WordDetailScreen extends ConsumerStatefulWidget {
   final WordModel word;
 
   const WordDetailScreen({super.key, required this.word});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WordDetailScreen> createState() => _WordDetailScreenState();
+}
+
+class _WordDetailScreenState extends ConsumerState<WordDetailScreen> {
+  final FlutterTts _tts = FlutterTts();
+  bool _isSpeaking = false;
+
+  WordModel get word => widget.word;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage('en-US');
+    await _tts.setSpeechRate(0.45);
+    await _tts.setPitch(1.0);
+
+    _tts.setCompletionHandler(() {
+      if (mounted) setState(() => _isSpeaking = false);
+    });
+    _tts.setCancelHandler(() {
+      if (mounted) setState(() => _isSpeaking = false);
+    });
+  }
+
+  Future<void> _speak(String text) async {
+    if (_isSpeaking) {
+      await _tts.stop();
+      setState(() => _isSpeaking = false);
+      return;
+    }
+    setState(() => _isSpeaking = true);
+    await _tts.speak(text);
+  }
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(word.word),
         actions: [
           IconButton(
-            onPressed: () => _confirmDelete(context, ref),
+            onPressed: () => _confirmDelete(),
             icon: const Icon(Icons.delete_outline),
             color: AppColors.error,
           ),
@@ -124,6 +171,44 @@ class WordDetailScreen extends ConsumerWidget {
           ],
 
           const SizedBox(height: 16),
+
+          // ── TTS Speak button ──
+          GestureDetector(
+            onTap: () => _speak(word.word),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _isSpeaking
+                        ? Icons.stop_rounded
+                        : Icons.volume_up_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _isSpeaking ? 'Dừng' : 'Phát âm',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
 
           // ── Flashcard indicator ──
           if (word.hasFlashcard)
@@ -245,12 +330,29 @@ class WordDetailScreen extends ConsumerWidget {
             border: Border.all(
                 color: AppColors.warning.withValues(alpha: 0.15)),
           ),
-          child: Text(
-            word.exampleSentence!,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  height: 1.5,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  word.exampleSentence!,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        height: 1.5,
+                      ),
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _speak(word.exampleSentence!),
+                icon: const Icon(Icons.volume_up_rounded),
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                color: AppColors.warning,
+                tooltip: 'Nghe ví dụ',
+              ),
+            ],
           ),
         ),
       ],
@@ -363,7 +465,7 @@ class WordDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

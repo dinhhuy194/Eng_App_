@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 
@@ -37,7 +38,16 @@ void main() async {
     debugPrint('🟢 [Main] Firebase Auth: appVerificationDisabledForTesting = true');
   }
 
-  // 5. Chạy app với Riverpod
+  // 5. Khởi tạo Notification Service + nhắc ôn hàng ngày
+  try {
+    await NotificationService().init();
+    await NotificationService().scheduleDailyReminder(hour: 8, minute: 0);
+    debugPrint('🔔 [Main] NotificationService initialized');
+  } catch (e) {
+    debugPrint('⚠️ [Main] NotificationService init failed: $e');
+  }
+
+  // 6. Chạy app với Riverpod
   runApp(const ProviderScope(child: EduApp()));
 }
 

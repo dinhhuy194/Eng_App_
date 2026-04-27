@@ -24,30 +24,48 @@ class GeminiService {
   }
 
   /// Gọi Gemini với prompt và trả về text
+  /// Có retry tự động khi bị rate limit
   Future<String> _callGemini(String prompt, {int? maxTokens}) async {
-    try {
-      final model = maxTokens != null
-          ? GenerativeModel(
-              model: ApiConstants.geminiModel,
-              apiKey: ApiConstants.geminiApiKey,
-              generationConfig: GenerationConfig(
-                maxOutputTokens: maxTokens,
-                temperature: 0.3,
-              ),
-            )
-          : _model;
+    final model = maxTokens != null
+        ? GenerativeModel(
+            model: ApiConstants.geminiModel,
+            apiKey: ApiConstants.geminiApiKey,
+            generationConfig: GenerationConfig(
+              maxOutputTokens: maxTokens,
+              temperature: 0.3,
+            ),
+          )
+        : _model;
 
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
+    const maxRetries = 3;
 
-      if (response.text == null || response.text!.isEmpty) {
-        throw Exception('Gemini không trả về kết quả');
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        final content = [Content.text(prompt)];
+        final response = await model.generateContent(content);
+
+        if (response.text == null || response.text!.isEmpty) {
+          throw Exception('Gemini không trả về kết quả');
+        }
+
+        return response.text!;
+      } on GenerativeAIException catch (e) {
+        final msg = e.message.toLowerCase();
+        final isRateLimit = msg.contains('quota') ||
+            msg.contains('rate') ||
+            msg.contains('429') ||
+            msg.contains('resource_exhausted');
+
+        if (isRateLimit && attempt < maxRetries - 1) {
+          // Đợi rồi thử lại: 15s, 30s, 60s
+          final waitSeconds = 15 * (attempt + 1);
+          await Future.delayed(Duration(seconds: waitSeconds));
+          continue;
+        }
+        throw _handleError(e);
       }
-
-      return response.text!;
-    } on GenerativeAIException catch (e) {
-      throw _handleError(e);
     }
+    throw Exception('Không thể kết nối Gemini sau nhiều lần thử.');
   }
 
   /// Extract JSON từ response (Gemini đôi khi wrap trong markdown)

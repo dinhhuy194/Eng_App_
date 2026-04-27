@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/services/notification_service.dart';
+import '../../vocabulary/services/vocabulary_service.dart';
 import '../models/flashcard_model.dart';
 
 /// Service CRUD cho Flashcards trên Firestore
@@ -180,8 +182,33 @@ class FlashcardService {
   // ═══════════════════════════════════════════
 
   /// Cập nhật flashcard sau khi ôn (apply SM-2 result)
+  /// Tự động schedule notification + sync vocabulary status
   Future<void> updateAfterReview(FlashcardModel updatedCard) async {
     await _flashcardsRef.doc(updatedCard.id).update(updatedCard.toFirestore());
+
+    // Auto schedule notification cho lần ôn tiếp theo
+    if (updatedCard.nextReviewAt.isAfter(DateTime.now())) {
+      try {
+        await NotificationService().scheduleReviewReminder(
+          id: updatedCard.id.hashCode,
+          scheduledAt: updatedCard.nextReviewAt,
+          body: 'Đến lúc ôn "${updatedCard.front}" rồi! 🧠',
+        );
+      } catch (_) {
+        // Notification fail không block review flow
+      }
+    }
+
+    // Sync vocabulary status dựa trên kết quả review
+    try {
+      await VocabularyService().syncStatusFromFlashcard(
+        flashcardId: updatedCard.id,
+        repetitions: updatedCard.repetition,
+        interval: updatedCard.interval,
+      );
+    } catch (_) {
+      // Vocabulary sync fail không block review flow
+    }
   }
 
   /// Cập nhật nội dung flashcard

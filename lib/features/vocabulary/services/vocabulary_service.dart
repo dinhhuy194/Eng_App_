@@ -165,6 +165,44 @@ class VocabularyService {
     await _vocabRef.doc(wordId).update({'status': statusValue});
   }
 
+  /// Đồng bộ status từ vựng dựa trên kết quả review flashcard
+  ///
+  /// Quy tắc:
+  /// - repetitions == 0 → newWord
+  /// - interval < 7 ngày → learning
+  /// - interval >= 7 ngày → mastered
+  Future<void> syncStatusFromFlashcard({
+    required String flashcardId,
+    required int repetitions,
+    required int interval,
+  }) async {
+    try {
+      // Tìm word liên kết với flashcard
+      final snapshot = await _vocabRef
+          .where('flashcardId', isEqualTo: flashcardId)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return;
+
+      final wordDoc = snapshot.docs.first;
+      WordStatus newStatus;
+
+      if (repetitions == 0) {
+        newStatus = WordStatus.newWord;
+      } else if (interval >= 7) {
+        newStatus = WordStatus.mastered;
+      } else {
+        newStatus = WordStatus.learning;
+      }
+
+      final statusValue = newStatus.name == 'newWord' ? 'new' : newStatus.name;
+      await wordDoc.reference.update({'status': statusValue});
+    } catch (_) {
+      // Không block nếu sync fail
+    }
+  }
+
   /// Cập nhật nội dung từ
   Future<void> updateWord(String wordId, Map<String, dynamic> data) async {
     await _vocabRef.doc(wordId).update(data);
